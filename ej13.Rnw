@@ -6,16 +6,23 @@
 \begin{document}
 
 \maketitle
+<<Librerias>>=
+library(ggplot2)
+library(plyr)
+library(reshape2)
+library(kknn)
+library(dplyr)
+library(ISLR)
+@
 
 \section{Ejercicio 1}
-<<Ejercicio-1>>=
-install.packages("ISLR")
-library(ISLR)
+<<Ejercicio1>>=
 
-# Queremos predecir el salario de un beisbolitsta en funcion de varias estadisticas
+# Queremos predecir el salario de un beisbolista 
+# en funcion de varias estadisticas
 # que describen su desempeño
 
-head(Hitters)
+# head(Hitters)
 dim(Hitters) #Tenemos informacion sobre 322 bateadores, con 20 variables
 
 # Vemos si tenemos Missing Values
@@ -51,8 +58,6 @@ hitters.prueba <- filter(Hitters.1, id %in% indices.entrena)
 
 #100 muestras de entrenamiento de tamaño 30
 
-
-##
 # conjunto de prueba 
 xp <- runif(50)
 yp <- abs(xp-0.5) + rnorm(length(xp), mean = 0, sd = 1)
@@ -89,13 +94,8 @@ ggplot(sal.m,
 
 @
 
-
 \section{Ejercicio 3}
 <<Ejercicio3>>=
-library(knitr)
-library(ggplot2)
-library(plyr)
-library(reshape2)
 
 xp = 0.5
 yp = abs(0.5-0.5) + rnorm(1,0,1)
