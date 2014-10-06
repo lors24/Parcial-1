@@ -299,17 +299,22 @@ abline(a=0, b=1)
 @
 
 \section{Ejercicio 13}
-<<13.1, message=FALSE>>=
+Ejercicio de simulación. Se tiene un modelo $x \sim U(0,1)$,  y $y=|x-1/2|+\epsilon$ con $\epsilon \sim N(0,1)$. Se quiere usar 3 vecinos más cercanos para predecir $y$ en función de $x$.\\
+
+Primero se producen 100 muestras de entrenamiento de tamaño n = 30 y una sola muestra de prueba de tamaño grande, en este caso 1000.
+
+<<3.1, message=FALSE>>=
 rm(list=ls())
-#100 muestras de entrenamiento de tamaño 30
 
-# conjunto de prueba
-
-xp <- runif(50)
+xp <- runif(1000)
 yp <- abs(xp-0.5) + rnorm(length(xp))
 datos.prueba <- data.frame(x = xp, y = yp)
-
-salida.sim.lista <- lapply(1:100, function(i){
+@
+    
+Haciendo el ajuste por 3 vecinos más cercanos se obtienen los errores de entrenamiento y de predicción (condicional a cada muestra).
+  
+<<3.2>>=
+salida.sim.l <- lapply(1:100, function(i){
     x <- runif(30)
     y <- abs(x-0.5) + rnorm(length(x))
     datos <- data.frame(x = x,y = y)
@@ -319,7 +324,7 @@ salida.sim.lista <- lapply(1:100, function(i){
                   k = 3, kernel = 'rectangular')
     error.entrena <- mean((fitted(f.hat) - datos$y)^2)
   
-    # datos de prueba
+
     f.hat2 <- kknn(y ~ x,
                   train = datos,
                   test = datos.prueba,
@@ -329,15 +334,21 @@ salida.sim.lista <- lapply(1:100, function(i){
     data.frame(muestra = i,error.entrena, error.prueba)
 })
 
-  salida.sim <- rbind_all(salida.sim.lista)
-  sal.m <- melt(salida.sim, id.vars='muestra')
-  
-  ggplot(sal.m,aes(x = muestra, y = value,col = variable, group = variable)) +
+  salida.sim <- rbind_all(salida.sim.l)
+  salida.sim.m <- melt(salida.sim, id.vars='muestra')
+
+@
+
+A continuación se muestra una gráfica con los errores de predicción y de entrenamiento para cada muestar de entrenamiento. 
+<<3.3>>=
+  ggplot(salida.sim.m,aes(x = muestra, y = value,col = variable, group = variable)) +
          geom_line() + geom_point() + theme_bw() +
          theme(legend.position="top", legend.title=element_blank(),
                axis.title.y = element_blank()) + xlab("Numero de muestra") +
          scale_color_discrete(labels = c("Error de Entrenamiento", "Error de Prueba"))
-  
+@
+Ahora, podemos usar las 100 muestras para estimar el error de predicción no condicional, que es igual al valor esperado sobre la muestra de los errores de predicción condicional y que se aproxima con el promedio de los errores de predicción.
+<<3.4, message=FALSE>>=
   ggplot(salida.sim, aes(x=error.prueba)) + theme_bw() +
     geom_histogram(position = "dodge") +
     geom_vline(data = data.frame(val = mean(salida.sim$error.prueba)), 
@@ -347,10 +358,8 @@ salida.sim.lista <- lapply(1:100, function(i){
     scale_color_discrete(labels = c("Error de prueba no condicional"))
 @
   \subsection{Resultados}
-  
   \begin{itemize}
-    \item El error de entrenamiento suele ser menor que el error de prueba. \\
+    \item A partir de las gráficas se puede observar que el error de entrenamiento suele ser menor que el error de prueba. \\
     \item Existe variabilidad en el error de prueba condicional.
   \end{itemize}
-
 \end{document}
