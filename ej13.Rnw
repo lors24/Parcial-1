@@ -7,13 +7,11 @@
 \author{Lorena Domínguez Ponce}
 
 \begin{document}
-
 \maketitle
-
-Se cargan las librerías necesarias 
-
-<<cargar-librerias, message=FALSE>>=
-library(arm)
+<<preambulo, message=FALSE, echo=FALSE, results='hide'>>=
+opts_chunk$set(fig.width=4.5,fig.height=3)
+set.seed(1)
+options(digits = 4)
 library(ElemStatLearn)
 library(ISLR)
 library(kknn)
@@ -23,27 +21,25 @@ library(dplyr)
 library(tidyr)
 library(glmnet)
 library(ROCR)
-set.seed(10)
-options(digits = 4)
 @
 
+\setcounter{section}{10}
 \section{Ejercicio 11}
 
 \subsection{Preparación de los datos}
 Se quiere predecir el salario de un beisbolista en función de varias estadísticas que describen su desempeño. Al ser el salario un dato numérico (cuantitativo), la mejor forma de realizar la predicción es mediante un análisis de regresión. 
 
-<<1.1>>=
+<<11.1>>=
 rm(list=ls())
 data <- Hitters
-#head(data)
-dim(data)
+dim(data) # Tamaño original
 data <- data[,sapply(data, is.numeric)]
-dim(data)
+dim(data) # Tamaño usando sólo las variables numéricas
 @
 
 La base \textit{Hitters} contiene información sobre 322 bateadores de las temporadas 1986 y 1987. En la base de datos se tienen 3 variables categóricas. Una opción podría ser crear variables dummy para representar los distintos niveles de esta variable, pero presentarían problemas al momento de regularizar. Por el momento se van a eliminar dichas variables y se utilizarán únicamente las variables numéricas.  Así la base se reduce a 17 de las 20 variables originales. También es importante revisar si hay datos faltantes en la base, ya que esto puede traer complicaciones al momento de realizar la regresión. 
 
-<<1.2>>=
+<<11.2>>=
 complete <- sapply(1:ncol(data), function(i){
     s <- sum(complete.cases(data[,i]))
 })
@@ -57,30 +53,27 @@ data.clean$id = row.names(data.clean)
 row.names(data.clean) <- NULL
 @
 
-Se puede observar que que la única variable en la que hay datos faltantes es en \textit{Salary}, que es justo la variable que se quiere predecir. A pesar de que existen algunos métodos de imputación para estos caso, por el momento se va a eliminar la información de los beisbolistas en los que no se posee información sobre su salario para quedarse con el 81$\%$ de los datos originales. \\
+Se puede observar que que la única variable en la que hay datos faltantes es en \textit{Salary}; la variable que se quiere predecir. Para el análisis, se elimina la información de los beisbolistas en los que no se posee información del salario con lo que la base final consta con el 81$\%$ de los datos originales. \\
 
 Se aparta una muestra de prueba de tamaño 100, el resto (163) será de entrenamiento.
 
-<<1.3>>=
+<<11.3>>=
 n.test <- 100
 indices.test <- sample(data.clean$id, n.test)
 data.train <- data.clean %.% filter(!(id %in% indices.test))
 data.test <- data.clean %.% filter( id %in% indices.test)
-
-nrow(data.train)
-nrow(data.test)
+nrow(data.train) # Tamaño de la muestra de entrenamiento
 @
 
 A continuación, se estandarizan los datos, lo cual es necesario para Ridge, Lasso y k-Vecinos más cercanos.
 
-<<1.4, message=FALSE>>=
+<<11.4, message=FALSE>>=
 data.train.long <- data.train %>% 
     gather(variable, valor, AtBat:Salary)
 
 media.de <- data.train.long %>%
   group_by(variable) %>%
   summarise(media = mean(valor), de = sd(valor))
-media.de
 
 data.train.long <- data.train %>%
   gather(variable, valor, AtBat:Salary) %>%
@@ -106,11 +99,10 @@ data.test.s <- data.test.long %>%
   select(id, variable, valor.s) %>%
   spread(variable, valor.s)
 @
-
+Cabe destacar que la estandarización de la base de prueba se realiza con base en la media y la varianza de la muestra de entrenamiento.
 
 \subsection{Regresión Lineal}
-<<1.5>>=
-
+<<11.5>>=
 train.model.1 <- lm(Salary ~ ., data = data.train.s[, -1] )
 train.error.1 = (mean((fitted(train.model.1) - data.train.s$Salary)^2))
 
@@ -122,7 +114,7 @@ res.model.1 <- data.frame(modelo = "Regresion lineal",
 @
 
 \subsection{Regresión Ridge}
-<<1.6>>=
+<<11.6>>=
 train.model.2 <- cv.glmnet(x = as.matrix(data.train.s[, -c(1,18)]), 
                            y = data.train.s$Salary, alpha = 0)
 train.pred.2  <- predict(train.model.2, newx = as.matrix(data.train.s[, -c(1,18)]), 
@@ -138,7 +130,7 @@ res.model.2 <- data.frame(modelo = "Regresion Ridge",
 @
 
 \subsection{Regresión Lasso}
-<<1.7>>=
+<<11.7>>=
 train.model.3 <- cv.glmnet(x = as.matrix(data.train.s[, -c(1,18)]), 
                            y = data.train.s$Salary, alpha = 1)
 train.pred.3  <- predict(train.model.3, newx = as.matrix(data.train.s[, -c(1,18)]),
@@ -154,7 +146,7 @@ res.model.3 <- data.frame(modelo = "Regresion Lasso",
 @
 
 \subsection{k Vecinos más cercanos}
-<<1.8>>=
+<<11.8>>=
 train.model.4 <- kknn(Salary ~., k = 1, train = data.train.s[, -1],
                       test = data.train.s[, -1], kernel = "rectangular")
 train.pred.4  <- fitted(train.model.4)
@@ -170,14 +162,10 @@ res.model.4 <- data.frame(modelo = "1 vecino mas cercano",
 @
 
 \subsection{Resultados}
-
-A continuación se muestra una tabla con los errores de entrenamiento y de prueba para cada caso. Como se había visto antes, 1 vecino más cercano tiene un error de entrenamiento de 0, sin embargo, lo que realmente nos interesa es el error de prueba. Para este conjunto de datos se obtuvo que el error de prueba es menor para Regresión Ridge. 
-
-<<1.9>>=
-
+A continuación se muestra una tabla con los errores de entrenamiento y de prueba para cada caso. Como se había visto antes, 1 vecino más cercano tiene un error de entrenamiento de 0, sin embargo, lo que realmente nos interesa es el error de prueba. Para este conjunto de datos se obtuvo que el error de prueba es menor para Regresión Ridge. De los resultados, se puede destacar que la regularización de las regresiones Ridge y Lasso ayudó a disminuir el sobreajuste a la base de entrenamiento. Cabe señalar que el coeficiente de penalización que se usó, fue seleccionado usando validación cruzada y eligiendo el modelo más simple a 1 desviación estándar del mínimo.
+<<11.9>>=
 res.tbl <- rbind(res.model.1, res.model.2, res.model.3, res.model.4)
 res.tbl
-
 @
 
 \section{Ejercicio 12}
@@ -185,7 +173,7 @@ res.tbl
 La base de datos contiene información sobre 462 A retrospective sample of males in a heart-disease high-risk region of the Western Cape, South Africa.
 Se consideran los datos de \textit{SAheart} donde se quiere predecir enfermedad del corazón en términos de otras varibles como consumo de tabaco, obesidad, edad, etc. 
 
-<<2.1>>=
+<<12.1>>=
 
 rm(list=ls())
 
@@ -198,15 +186,12 @@ data$famhist <- as.numeric(data$famhist)-1
 La base de datos tiene información de 462 pacientes. Primero recodificamos la variables $\textit{famhist}$ para poder utilizarla en la regresión. La variable vale 1 cuando si había historial de enfermedades del corazón en la familia y 0 en otro caso. 
 
 
-<<2.2>>=
+<<12.2>>=
 # Recodificamos la variable famhist
 # 1 significa presencia de enfermedad del corazon en la familia
-
-
 # Tenemos datos de 462 pacientes 
 
 N <- 300
-set.seed(1502)
 
 indices <- sample(1:nrow(data), N)
 data.train <- data[indices, ]
@@ -219,13 +204,10 @@ y.train <- data.train[, 'chd']
 y.test <- data.test[, 'chd']
 @
 
-
- 
 Tenemos una tasa de error base de:
 
 \subsection{Regresión Ridge}
-<<>>=
-
+<<12.3>>=
 tasa.base <- 1- max(prop.table(table(data.test$chd)))
 mod.ridge <- glmnet(as.matrix(x.train),
                   as.numeric(y.train), 
@@ -251,7 +233,7 @@ final.pred <- preds.1 > 0.5
 
 Tabla de contingencia
 
-<<>>=
+<<12.4>>=
 tab.final.ridge <- table(final.pred, y.test)
 
 vn <- tab.final.ridge[1,1]
@@ -268,9 +250,8 @@ pred.ridge <- prediction(preds.1, y.test == 1)
 perf.ridge <- performance(pred.ridge, 'sens','fpr')
 @
 
-
 \subsection{Lasso}
-<<>>= 
+<<12.5>>= 
 mod.lasso <- glmnet(as.matrix(x.train),
                   as.numeric(y.train), 
                   family="binomial", alpha = 1)
@@ -291,11 +272,9 @@ tab.final.lasso <- table(final.pred, y.test)
 error.prueba.lasso <- (tab.final.lasso[1,2]+tab.final.lasso[2,1])/length(y.test)
 kappa.lasso <- (tasa.base - error.prueba.lasso )/tasa.base
 @
-
-
 Tabla de contingencia
 
-<<>>=
+<<12.6>>=
 tab.final.lasso <- table(final.pred, y.test)
 
 vn <- tab.final.lasso[1,1]
@@ -312,19 +291,15 @@ pred.lasso <- prediction(preds.1, y.test == 1)
 perf.lasso <- performance(pred.lasso, 'sens','fpr')
 @
 
-
 \subsection{Curvas ROC}
-<<>>=
-
-plot(perf.ridge, col='green', type='l')
+<<12.7>>=
+plot(perf.ridge, col='green', type='l', xlab = "Falsos Positivos", ylab = "Sensitividad")
 plot(perf.lasso, col='purple', add = T, type="l")
 abline(a=0, b=1)
-
-
 @
 
 \section{Ejercicio 13}
-<<3.1, message=FALSE>>=
+<<13.1, message=FALSE>>=
 rm(list=ls())
 #100 muestras de entrenamiento de tamaño 30
 
@@ -357,15 +332,19 @@ salida.sim.lista <- lapply(1:100, function(i){
   salida.sim <- rbind_all(salida.sim.lista)
   sal.m <- melt(salida.sim, id.vars='muestra')
   
-  ggplot(sal.m,
-         aes(x = muestra, y = value,
-             col = variable, group = variable)) +
-         geom_line() + geom_point()
-
-  ggplot(salida.sim, aes(x=error.prueba)) + 
-  geom_histogram(position = "dodge") +
-  geom_vline(xintercept = mean(salida.sim$error.prueba),
-             color = "red")
+  ggplot(sal.m,aes(x = muestra, y = value,col = variable, group = variable)) +
+         geom_line() + geom_point() + theme_bw() +
+         theme(legend.position="top", legend.title=element_blank(),
+               axis.title.y = element_blank()) + xlab("Numero de muestra") +
+         scale_color_discrete(labels = c("Error de Entrenamiento", "Error de Prueba"))
+  
+  ggplot(salida.sim, aes(x=error.prueba)) + theme_bw() +
+    geom_histogram(position = "dodge") +
+    geom_vline(data = data.frame(val = mean(salida.sim$error.prueba)), 
+               aes(xintercept = val, color = "red"), show_guide = TRUE) +
+    xlab("Error de prueba condicional") + ylab("Conteo") +
+    theme(legend.position="top", legend.title=element_blank()) +
+    scale_color_discrete(labels = c("Error de prueba no condicional"))
 @
   \subsection{Resultados}
   
